@@ -1,26 +1,26 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import FormPage from './pages/FormPage';
+import ConfirmationPage from './pages/ConfirmationPage';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './styles/App.css';
 
-function App() {
+const App: React.FC = () => {
+  const [donorData, setDonorData] = useState<any>(null);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/" element={<HomePage setDonorData={setDonorData} />} />
+          <Route path="/form" element={<FormPage donorData={donorData} setDonorData={setDonorData} />} />
+          <Route path="/confirmation" element={<ConfirmationPage donorData={donorData} />} />
+        </Routes>
+      </div>
+    </Router>
   );
-}
+};
 
 export default App;

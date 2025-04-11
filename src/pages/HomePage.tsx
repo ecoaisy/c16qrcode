@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Button, Image, Alert } from 'react-bootstrap';
-
-import qrCodeImage from '../assets/qr-code.png';
+import { Container, Button } from 'react-bootstrap';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface HomePageProps {
   setDonorData: (data: any) => void;
@@ -11,103 +10,71 @@ interface HomePageProps {
 
 const HomePage: React.FC<HomePageProps> = ({ setDonorData }) => {
   const navigate = useNavigate();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const qrScannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const [scanner, setScanner] = useState<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
-    // Gán qrScanner cho qrScannerRef.current
-    qrScannerRef.current = new Html5QrcodeScanner('qr-reader', {
+    const html5QrCodeScanner = new Html5QrcodeScanner('qr-reader', {
       fps: 10,
       qrbox: { width: 250, height: 250 },
     });
+    setScanner(html5QrCodeScanner);
 
-    if (qrScannerRef.current) {
-      qrScannerRef.current.render(
-        (decodedText: string) => {
-          console.log('QR Code scanned:', decodedText);
-          setErrorMessage(null);
-          navigate('/form');
-        },
-        (error: Error) => {
-          if (error.message.includes('NotFoundException')) {
-            setErrorMessage('Hình ảnh không chứa mã QR Code. Vui lòng chọn hình ảnh khác hoặc thử lại!');
-          } else {
-            setErrorMessage('Đã có lỗi xảy ra khi quét mã QR Code. Vui lòng thử lại!');
-          }
-          console.error('QR Code scan error:', error);
-        }
-      );
-    }
-
-    return () => {
-      if (qrScannerRef.current) {
-        qrScannerRef.current.clear();
+    const onScanSuccess = (decodedText: string) => {
+      console.log(`QR Code scanned: ${decodedText}`);
+      // Kiểm tra nếu decodedText là URL, trích xuất donorId
+      const url = new URL(decodedText);
+      const donorId = url.pathname.split('/').pop(); // Lấy donorId từ URL
+      if (donorId) {
+        setDonorData({ id: donorId });
+        navigate(`/donor/${donorId}`);
       }
     };
-  }, [navigate]);
 
-  // Hàm để thử lại (khởi động lại quét QR Code)
-  const handleRetry = () => {
-    setErrorMessage(null);
-    if (qrScannerRef.current) {
-      qrScannerRef.current.render(
-        (decodedText: string) => {
-          // Tạo hàm async riêng để xử lý fetch
-          const fetchDonorData = async () => {
-            try {
-              const response = await fetch(`${process.env.REACT_APP_API_URL}/api/donor/${decodedText}`);
-              if (!response.ok) {
-              throw new Error(`Failed to fetch donor data: ${response.status} ${response.statusText}`);
-              }
-              const data = await response.json();
-              setDonorData(data);
-              navigate('/form');
-            } catch (error) {
-              console.error('Error fetching donor data:', error);
-              setErrorMessage('Không thể lấy dữ liệu người hiến máu. Vui lòng nhập tay thông tin.');
-              navigate('/form');
-            }
-          };
+    const onScanFailure = (error: string) => {
+      console.warn(`QR Code scan error: ${error}`);
+    };
 
-          fetchDonorData();
-        },
-        (error: Error) => {
-          if (error.message.includes('NotFoundException')) {
-            setErrorMessage('Hình ảnh không chứa mã QR Code. Vui lòng chọn hình ảnh khác hoặc thử lại!');
-          } else {
-            setErrorMessage('Đã có lỗi xảy ra khi quét mã QR Code. Vui lòng thử lại!');
-          }
-          console.error('QR Code scan error:', error);
-        }
-      );
-    }
+    html5QrCodeScanner.render(onScanSuccess, onScanFailure);
+
+    return () => {
+      html5QrCodeScanner.clear();
+    };
+  }, [navigate, setDonorData]);
+
+  const handleManualEntry = () => {
+    setDonorData(null);
+    navigate('/donor/new');
   };
+
+  // Giả lập donorId cho QR code (có thể thay bằng giá trị động)
+  const donorId = '12345';
+  // Sử dụng base URL từ biến môi trường
+  const baseUrl = process.env.REACT_APP_BASE_URL || 'http://localhost:3001';
+  const qrCodeValue = `${baseUrl}/donor/${donorId}`; // URL đầy đủ: http://localhost:3001/donor/12345
 
   return (
     <Container className="text-center">
       <h1>Quét QR Code</h1>
-      <div id="qr-reader" style={{ width: '100%' }}></div>
-
-      {/* Hiển thị thông báo lỗi nếu có */}
-      {errorMessage && (
-        <Alert variant="danger" className="mt-3">
-          {errorMessage}
-          <div className="mt-2">
-            <Button variant="primary" onClick={handleRetry} className="me-2">
-              Thử lại
-            </Button>
-            <Button variant="secondary" onClick={() => navigate('/form')}>
-              Nhập tay thông tin
-            </Button>
-          </div>
-        </Alert>
-      )}
-
+      <div id="qr-reader" style={{ width: '100%', maxWidth: '500px', margin: '0 auto' }}></div>
       <p>Hoặc quét mã QR dưới đây để đăng ký hiến máu:</p>
-      <Image src={qrCodeImage} alt="QR Code để đăng ký hiến máu" style={{ width: '200px', margin: '20px 0' }} />
-      <Button variant="secondary" className="mt-3" onClick={() => navigate('/form')}>
-        Nhập tay thông tin
+      <div style={{ margin: '20px 0' }}>
+        <QRCodeSVG
+          value={qrCodeValue}
+          size={200}
+          fgColor="#000000"
+          bgColor="#ffffff"
+          level="H"
+          style={{ border: '2px solid red', padding: '10px' }}
+        />
+      </div>
+      <Button variant="danger" style={{ marginBottom: '20px' }}>
+        Scan Me
       </Button>
+      <div>
+        <Button variant="secondary" onClick={handleManualEntry}>
+          Nhập tay thông tin
+        </Button>
+      </div>
     </Container>
   );
 };
